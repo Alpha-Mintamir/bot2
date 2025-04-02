@@ -1,9 +1,10 @@
 import logging
+import traceback
 from telegram import Update
 from telegram.ext import ContextTypes
 from utils import format_telegram_message
 import requests
-from config import API_KEY, BASE_URL
+from config import API_KEY, BASE_URL, SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
