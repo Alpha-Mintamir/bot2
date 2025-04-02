@@ -60,7 +60,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_message = update.message.text
         logger.info(f"Received message: {user_message}")
-
+        
+        # Log API key presence (without revealing the actual key)
+        logger.info(f"API_KEY present: {bool(API_KEY)}")
+        
         # Create a more focused prompt that includes the user's question
         prompt = f"""Based on the following system knowledge, please answer this question: {user_message}
 
@@ -94,6 +97,8 @@ Keep responses concise but informative. If the information isn't in the knowledg
             }
         }
         
+        logger.info("Sending request to Gemini API")
+        
         response = requests.post(
             BASE_URL, 
             headers=headers, 
@@ -102,12 +107,46 @@ Keep responses concise but informative. If the information isn't in the knowledg
             timeout=30
         )
         
-        response.raise_for_status()
+        logger.info(f"Gemini API response status: {response.status_code}")
+        
+        if response.status_code != 200:
+            logger.error(f"API error: {response.text}")
+            raise Exception(f"API returned status code {response.status_code}: {response.text}")
+            
         result = response.json()
+        logger.info("Successfully parsed JSON response")
+        
+        # Check if the response has the expected structure
+        if 'candidates' not in result:
+            logger.error(f"Unexpected API response structure: {result}")
+            raise Exception("API response doesn't contain 'candidates'")
+            
+        if not result['candidates']:
+            logger.error("API returned empty candidates list")
+            raise Exception("API returned empty candidates list")
+            
+        if 'content' not in result['candidates'][0]:
+            logger.error(f"Missing 'content' in first candidate: {result['candidates'][0]}")
+            raise Exception("API response doesn't contain 'content' in first candidate")
+            
+        if 'parts' not in result['candidates'][0]['content']:
+            logger.error(f"Missing 'parts' in content: {result['candidates'][0]['content']}")
+            raise Exception("API response doesn't contain 'parts' in content")
+            
+        if not result['candidates'][0]['content']['parts']:
+            logger.error("Empty 'parts' list in content")
+            raise Exception("API response contains empty 'parts' list")
+            
+        if 'text' not in result['candidates'][0]['content']['parts'][0]:
+            logger.error(f"Missing 'text' in first part: {result['candidates'][0]['content']['parts'][0]}")
+            raise Exception("API response doesn't contain 'text' in first part")
+        
         generated_text = result['candidates'][0]['content']['parts'][0]['text']
+        logger.info("Successfully extracted text from API response")
 
         # Format the response for Telegram
         formatted_text = format_telegram_message(generated_text)
+        logger.info("Text formatted for Telegram")
         
         # Send the formatted message
         await update.message.reply_text(
@@ -115,6 +154,7 @@ Keep responses concise but informative. If the information isn't in the knowledg
             parse_mode='HTML',
             disable_web_page_preview=True
         )
+        logger.info("Response sent to user")
 
     except Exception as e:
         logger.error(f"Error in handle_message: {e}")
