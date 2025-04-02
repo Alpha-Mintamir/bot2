@@ -7,7 +7,7 @@ import traceback
 from quart import Quart, request, Response
 import nest_asyncio
 
-from config import TELEGRAM_TOKEN, API_KEY, BASE_URL
+from config import TELEGRAM_TOKEN, API_KEY, BASE_URL, WEBHOOK_URL
 from handlers import start, help_command, handle_message
 from utils import format_telegram_message
 
@@ -26,10 +26,14 @@ app = Quart(__name__)
 
 # Get environment variables
 PORT = int(os.environ.get('PORT', 8080))
-WEBHOOK_URL = os.environ.get('WEBHOOK_URL', 'https://your-domain.com')
 
-# Initialize bot application
-application = Application.builder().token(TELEGRAM_TOKEN).build()
+# Initialize bot application with error handling
+try:
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    logger.info("Bot application initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize bot application: {e}")
+    raise
 
 # Error handler
 async def error_handler(update, context):
